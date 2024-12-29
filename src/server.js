@@ -4,6 +4,9 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fixturesService } from './services/fixtures.service.js';
 import { ablyService } from './services/ably.service.js';
+import { cacheService } from './services/cache.services.js';
+import { RouteHandlerService } from './services/route-handler.service.js';
+import { feedRoutes } from './routes/feed.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -13,31 +16,51 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
     credentials: true
   },
-  transports: ['websocket', 'polling']
+  transports: ['websocket'],
+  pingInterval: 10000,
+  pingTimeout: 5000,
+  maxHttpBufferSize: 1e8
 });
 
 app.use(cors());
 app.use(express.json());
 
+// Mount feed routes
+app.use('/api/feed', feedRoutes);
+
+// In-memory cache for last actions
+const lastActionsCache = new Map();
+const feedDataCache = new Map();
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+  const subscribedFixtures = new Set();
 
   socket.on('subscribe', async (fixtureId) => {
-    console.log(`Client ${socket.id} subscribing to fixture ${fixtureId}`);
-    
     try {
+      if (subscribedFixtures.has(fixtureId)) return;
+
       const ablyFeed = await fixturesService.getAblyFeed(fixtureId);
+      const cachedData = cacheService.getFeedData(fixtureId);
+      
+      if (cachedData) {
+        socket.emit(`fixture:${fixtureId}`, cachedData);
+      }
       
       await ablyService.subscribe(
         fixtureId,
         ablyFeed.accessToken,
         ablyFeed.channelName,
         (data) => {
+          cacheService.setFeedData(fixtureId, data);
+          if (data.actions) {
+            cacheService.setLastAction(fixtureId, data.actions);
+          }
           socket.emit(`fixture:${fixtureId}`, data);
         }
       );
 
+      subscribedFixtures.add(fixtureId);
       socket.join(`fixture:${fixtureId}`);
     } catch (error) {
       console.error(`Error subscribing to fixture ${fixtureId}:`, error);
@@ -46,20 +69,28 @@ io.on('connection', (socket) => {
   });
 
   socket.on('unsubscribe', async (fixtureId) => {
-    console.log(`Client ${socket.id} unsubscribing from fixture ${fixtureId}`);
+    subscribedFixtures.delete(fixtureId);
     socket.leave(`fixture:${fixtureId}`);
     
-    // Only unsubscribe from Ably if no other clients are watching this fixture
     const room = io.sockets.adapter.rooms.get(`fixture:${fixtureId}`);
-    if (!room || room.size === 0) {
+    if (!room?.size) {
       await ablyService.unsubscribe(fixtureId);
+      cacheService.clearFixtureData(fixtureId);
     }
   });
 
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+  socket.on('disconnect', async () => {
+    for (const fixtureId of subscribedFixtures) {
+      const room = io.sockets.adapter.rooms.get(`fixture:${fixtureId}`);
+      if (!room?.size) {
+        await ablyService.unsubscribe(fixtureId);
+        cacheService.clearFixtureData(fixtureId);
+      }
+    }
+    subscribedFixtures.clear();
   });
 });
+
 
 // Get all live fixtures
 app.get('/api/fixtures/live', async (req, res) => {
@@ -81,103 +112,26 @@ app.get('/api/fixtures/:id', async (req, res) => {
   }
 });
 
-// Get last match action for a fixture
+// API Routes with optimized handlers
 app.get('/api/feed/:id/last-action', async (req, res) => {
   try {
-    const fixtureId = req.params.id;
-    
-    if (!ablyService.isSubscribed(fixtureId)) {
-      return res.status(404).json({ 
-        status: 'error',
-        message: 'Feed not found. Please start the feed first.'
-      });
-    }
-
-    const feedData = ablyService.getFeedData(fixtureId);
-    if (!feedData || feedData.length === 0) {
-      return res.json({
-        status: 'success',
-        data: {
-          fixtureId: parseInt(fixtureId),
-          timestamp: new Date().toISOString(),
-          matchStatus: 'Pending',
-          lastAction: null
-        }
-      });
-    }
-
-    const lastUpdate = feedData[feedData.length - 1];
-    const lastAction = lastUpdate.actions ? 
-      Object.entries(lastUpdate.actions)
-        .flatMap(([type, actions]) => 
-          Array.isArray(actions) ? actions.map(action => ({ ...action, type })) : []
-        )
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
-      : null;
-
-    res.json({
-      status: 'success',
-      data: {
-        fixtureId: parseInt(fixtureId),
-        timestamp: lastUpdate.timestamp,
-        matchStatus: lastUpdate.matchStatus,
-        lastAction: lastAction
-      }
-    });
+    const result = await RouteHandlerService.getLastAction(req.params.id);
+    res.json(result);
   } catch (error) {
-    console.error('Error getting last action:', error);
-    res.status(500).json({ 
+    res.status(404).json({ 
       status: 'error',
       message: error.message
     });
   }
 });
 
-// View feed data for a fixture
 app.post('/api/feed/:id/view', async (req, res) => {
   try {
-    const fixtureId = req.params.id;
-    
-    if (!ablyService.isSubscribed(fixtureId)) {
-      return res.status(404).json({ 
-        status_code: 1,
-        response: 'Feed not found. Please start the feed first.',
-        debug: 'post'
-      });
-    }
-
-    const feedData = ablyService.getFeedData(fixtureId);
-    
-    if (!feedData || feedData.length === 0) {
-      return res.json({
-        status_code: 0,
-        response: [{
-          fixtureId: parseInt(fixtureId),
-          timestamp: new Date().toISOString(),
-          message: 'No updates available yet',
-          actions: {},
-          statistics: { possession: { home: 50, away: 50 } },
-          teams: {
-            home: { sourceName: 'Home Team' },
-            away: { sourceName: 'Away Team' }
-          }
-        }],
-        debug: 'post'
-      });
-    }
-
-    // Get the last item from feedData array
-    const lastFeedData = feedData[feedData.length - 1];
-
-    res.json({
-      status_code: 0,
-      response: [lastFeedData], // Wrap in array to maintain consistent response structure
-      debug: 'post'
-    });
+    const result = await RouteHandlerService.getFeedView(req.params.id);
+    res.json(result);
   } catch (error) {
-    console.error('Error viewing feed:', error);
     res.status(500).json({ 
-      status_code: 2,
+      status_code: 1,
       response: error.message,
       debug: 'post'
     });
