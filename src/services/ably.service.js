@@ -37,7 +37,10 @@ class AblyService {
       goalKicks: this.processBasicActions(matchActions.goalKicks?.matchActions || []),
       missedPenalties: this.processBasicActions(matchActions.missedPenalties?.matchActions || []),
       savedPenalties: this.processBasicActions(matchActions.savedPenalties?.matchActions || []),
-      throwIns: this.processBasicActions(matchActions.throwIns?.matchActions || []),
+      throwIns: this.processThrowInsWithDangerState(
+        this.processBasicActions(matchActions.throwIns?.matchActions || []),
+        this.processDangerStateChanges(matchActions.dangerStateChanges?.dangerStateChanges || [])
+      ),
       possessionChanges: this.processPossessionChanges(matchActions.possessionChanges?.possessionChanges || []),
       stoppageTimeAnnouncements: this.processStoppageTime(matchActions.stoppageTimeAnnouncements?.stoppageTimeAnnouncements || []),
       phaseChanges: this.processPhaseChanges(matchActions.phaseChanges?.phaseChanges || []),
@@ -65,6 +68,28 @@ class AblyService {
       playerId: action.playerInternalId,
       isConfirmed: action.isConfirmed
     }));
+  }
+
+  processThrowInsWithDangerState(throwIns, dangerStateChanges) {
+    if (!Array.isArray(throwIns) || !Array.isArray(dangerStateChanges)) {
+      console.log('Invalid input: Both throwIns and dangerStateChanges must be arrays');
+      return [];
+    }
+  
+    // Create a map of dangerStateChanges by timestamp for faster lookup
+    const dangerStateMap = new Map();
+    dangerStateChanges.forEach(change => {
+      dangerStateMap.set(change.timestamp, change.dangerState);
+    });
+  
+    // Process throw-ins and add corresponding danger states
+    return throwIns.map(throwIn => {
+      const matchingDangerState = dangerStateMap.get(throwIn.timestamp);
+      return {
+        ...throwIn,
+        dangerState: matchingDangerState || null // Add null if no matching danger state is found
+      };
+    });
   }
 
   processGoals(goals) {
