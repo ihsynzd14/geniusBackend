@@ -7,6 +7,8 @@ import { ablyService } from './services/ably.service.js';
 import { cacheService } from './services/cache.services.js';
 import { RouteHandlerService } from './services/route-handler.service.js';
 import { feedRoutes } from './routes/feed.routes.js';
+import { fixtureApiRoutes } from './routes/fixtureApi.routes.js';
+import { detailedFixturesService } from './services/detailed.fixtures.service.js'
 
 const app = express();
 const httpServer = createServer(app);
@@ -27,7 +29,7 @@ app.use(express.json());
 
 // Mount feed routes
 app.use('/api/feed', feedRoutes);
-
+app.use('/api/fixtures', fixtureApiRoutes);
 // In-memory cache for last actions
 const lastActionsCache = new Map();
 const feedDataCache = new Map();
@@ -91,6 +93,18 @@ io.on('connection', (socket) => {
   });
 });
 
+app.get('/api/fixtures/live/enhanced', async (req, res) => {
+  try {
+    const fixtures = await detailedFixturesService.getEnhancedLiveFixtures();
+    res.json(fixtures);
+  } catch (error) {
+    console.error('Error fetching enhanced live fixtures:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch enhanced live fixtures',
+      details: error.message 
+    });
+  }
+});
 
 // Get all live fixtures
 app.get('/api/fixtures/live', async (req, res) => {
