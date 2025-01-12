@@ -1,0 +1,234 @@
+Terminology
+Ably Channel - Channels are the medium through which messages are distributed. Clients attach to channels to subscribe to messages, and every message published to a unique channel is broadcast by Ably to all subscribers. This messaging pattern is commonly called the Publish–subscribe pattern. You can read more about Ably Channels here.
+
+Access Token - Ably’s authentication token required to establish a connection with Ably. You can learn more about this here.
+
+Client Library - Ably’s public open-source SDKs provided to clients to simplify the software development work required by users of Ably. More information is available here.
+
+
+The API is implemented using the Ably platform. Ably acts as a high-performance communication hub between Genius Sports and clients of the API around the World. 
+
+Getting Started
+The example code we show throughout this document is in C#. Ably supports many different programming languages and has documentation on the Ably Website including example code for each of them.
+
+This section describes the steps needed to connect to Ably and receive messages. 
+
+The easiest way to consume messages from Ably is to download the Ably client-side library for your language of choice.
+
+For example if using Visual Studio and .Net (C#) you can install the library using the following command in Visual Studio’s Package Manager Console:
+
+Install-Package ably.io
+
+The example .Net code below requires the following Ably namespaces:
+
+using IO.Ably;
+using IO.Ably.Realtime;
+
+It is also possible to connect directly without using Ably’s own libraries and more information about that is available here.
+
+Before you can start using the code below you will need to get the following secrets from Genius Sports Support Team:
+
+Client ID
+
+Client Secret
+
+API Key
+
+1. Obtaining an Access Token for the Match State Platform API
+First, you will need to get an access token for the Match State Platform API. 
+
+
+
+var url = "https://auth.api.geniussports.com/oauth2/token";
+var body = new Dictionary<string, string> {
+	{"grant_type", "client_credentials"},
+	{"client_id", "CLIENT_ID"},
+	{"client_secret", "CLIENT_SECRET"}
+};
+var httpClient = new HttpClient();
+var response = await httpClient.PostAsync(url, new FormUrlEncodedContent(body));
+var responseBody = await response.Content.ReadAsStringAsync();
+var tokenEnvelope = JsonConvert.DeserializeObject<JObject>(responseBody);
+var accessToken = tokenEnvelope["access_token"].ToString();
+
+2. Consuming the Fixture Schedule
+To be able to connect to Ably channel you will need to know the Fixture ID. You can get the fixtures with available feeds using the Match State Platform Schedule API.
+
+var sourceId = "GeniusPremium";
+var sportId = 10; //  Football
+var from = DateTime.UtcNow.ToString("s");
+var to = DateTime.UtcNow.AddDays(2).ToString("s");
+var baseUrl = "https://platform.matchstate.api.geniussports.com/api/v1";
+var url = $"{baseUrl}/sources/{sourceId}/sports/{sportId}/schedule?from={from}&to={to}";
+var httpClient = new HttpClient();
+httpClient.DefaultRequestHeaders.Add("Authorization", "{ACCESS_TOKEN}");
+httpClient.DefaultRequestHeaders.Add("x-api-key", "{API_KEY}");
+var response = await httpClient.GetAsync(url);
+var responseBody = await response.Content.ReadAsStringAsync();
+var schedule = JsonConvert.DeserializeObject<JArray>(responseBody);
+var fixtureId = schedule[0]["fixtureId"].ToString();
+2.5. Obtaining competitor information:
+You can retrieve competitor information, as well as other information such as competitions, venues, etc, from our FixtureAPI. Please note that the client credentials for the Fixture API are different from those of the Ably APIs.
+
+3. Obtaining an Ably Access Token and a Channel Name
+Now when you have a {FIXTURE_ID} you will need to call the appropriate endpoint as described in Match State Platform Access Control API to get the Ably Channel Name and Ably Access Token. 
+
+Important: The FIXTURE_ID should be scheduled in a period of between 5 days in the past and 2 days in the future, by the Match State Platform Schedule API in order for the Access Control API to return a channel & token. 
+
+
+
+async Task<(string channelName, string accessToken)> GetAblyFeed()
+{
+    var sourceId = "GeniusPremium";
+    var sportId = 10; // American Football
+    var fixtureId = "{FIXTURE_ID}";
+    var baseUrl = "https://platform.matchstate.api.geniussports.com/api/v1";
+    var url = $"{baseUrl}/sources/{sourceId}/sports/{sportId}/fixtures/{fixtureId}/liveaccess";
+    var httpClient = new HttpClient();
+    httpClient.DefaultRequestHeaders.Add("Authorization", "{ACCESS_TOKEN}");
+    httpClient.DefaultRequestHeaders.Add("x-api-key", "{API_KEY}");
+    var response = await httpClient.GetAsync(url);
+    var responseBody = await response.Content.ReadAsStringAsync();
+    var ablyFeed = JsonConvert.DeserializeObject<JObject>(responseBody);
+    var ablyChannelName = ablyFeed["channelName"].ToString();
+    var ablyAccessToken = ablyFeed["accessToken"].ToString();
+    return (ablyChannelName, ablyAccessToken);
+}
+
+
+4. Refreshing an Ably Access Token
+An Ably Access Token will normally expire after some time. To handle that problem you will need to implement the method that Ably Client will call to refresh the token:
+
+
+
+async Task<object> AblyAuthCallback(TokenParams arg)
+{
+    (_, string accessToken) = await GetAblyFeed();
+    return new TokenDetails
+    {
+        Token = accessToken
+    };
+}
+
+
+5. Connecting to Ably and Subscribing to a Channel 
+Now everything is ready to start listening for the Match State.
+
+
+
+(string ablyChannelName, string ablyAccessToken) = GetAblyFeed(); // Code sample (3)
+var ably = new AblyRealtime(new ClientOptions 
+{
+	Token = ablyAccessToken,
+	AuthCallback = AblyAuthCallback, // Code sample (4)
+	Environment = "geniussports",
+	FallbackHosts = new string[]
+	{
+		"geniussports-a-fallback.ably-realtime.com",
+		"geniussports-b-fallback.ably-realtime.com",
+		"geniussports-c-fallback.ably-realtime.com",
+		"geniussports-d-fallback.ably-realtime.com",
+		"geniussports-e-fallback.ably-realtime.com"
+	}
+});
+IRealtimeChannel channel = ably.Channels.Get(ablyChannelName);
+channel.Subscribe(message => {
+  Console.WriteLine($"Message: {message.Name}:{message.Data} received");
+});
+See API Explorer for Genius Ably Push Feeds for information about the available channels, their names, and message formats.
+
+More information and examples of how to subscribe to channels can be found in the official ReadMe files in Ably’s GitHub account for the downloaded SDK.
+
+
+Technical Details
+Environments and Ably
+Genius Sports provides the following Ably environments for customer use:
+
+Production
+
+UAT
+
+Which Ably environment a client connects to is determined by the Access Token so please take care to use the correct key for each environment. 
+
+API Changes and Versioning
+From time to time Genius Sports may make changes to the format of the data provided through its API. Where possible these changes will be made in a non-breaking additive manner. Clients of the contract should be notified, and if they are not interested in the new fields they can simply ignore them. 
+
+On rare occasions, a breaking change to the contract may be required. This will be done in a rolling update manner with the older and newer version of the contract published simultaneously in different Ably channels for a pre-defined period in order to provide users of the contract time to upgrade before the old contract channel is turned off.
+
+Monitoring Feed Liveness and Data Reliability
+Monitoring your connection to Ably
+The AblyRealtime object that is returned when connecting to Ably exposes a property Connection. The Connection exposes an On method that allows the client to subscribe to channel events such as: Initialized, Connecting, Connected, Disconnected, Suspended, Closing, Closed, Failed
+
+
+
+var ably = new AblyRealtime(new ClientOptions 
+{
+	Token = "{ABLY_ACCESS_TOKEN}",
+	AuthCallback = AblyAuthCallback,
+	Environment = "geniussports",
+	FallbackHosts = new string[]
+	{
+		"geniussports-a-fallback.ably-realtime.com",
+		"geniussports-b-fallback.ably-realtime.com",
+		"geniussports-c-fallback.ably-realtime.com",
+		"geniussports-d-fallback.ably-realtime.com",
+		"geniussports-e-fallback.ably-realtime.com"
+	}
+});
+ably.Connection.On(ConnectionState.Disconnected, args => {
+  Console.WriteLine("Disconnected");
+});
+ably.Connection.On(ConnectionState.Suspended, args => {
+  Console.WriteLine("Suspended");
+});
+The Connection exposes another property State, having one of the following values: Initialized, Connecting, Connected, Disconnected, Suspended, Closing, Closed, Failed.
+
+Any other state than Connected means that the connection to Ably is lost. This property is constantly updated by the client-side library.
+
+For more details consult Ably’s documentation. 
+
+Message Expiry
+By default, a message will be available to be consumed from a channel for two minutes from publication. This means consumers experiencing brief connection drops will not miss any messages. If a consumer is offline for more than two minutes they can either:
+
+Simply wait for the next message to be published if the messages they are consuming are complete in themselves, rather than being event-based
+
+Request the latest information from the appropriate REST API i.e. essentially using the REST API as a bootstrap mechanism. 
+
+Overview
+Genius Sports Live Sports Data Pull APIs are collection of REST APIs that provide entry point for integration with Genius Sports live sports data ecosystem for both data producers (also called feed providers) and data consumers. Typically a user of Pull APIs would either provide live sports data or consume it but in some cases they can do both.
+
+Match State Platform APIs
+Match State Platform APIs are set of APIs that expose entry points for integration for both feed providers and consumers that process information about the current state of a sport event. For example in a football (soccer) game, current state of the sport event would contain information about the goals, corners, cards and many more details that could provide meaningful data for downstream consumers. Such piece of information is called Match State. It is aggregation of all Match Events in the game.
+
+Match Events
+Data contracts each of which represents a single action that happened during a match (e.g. GoalScored, CornerAwarded). When aggregated they form Match State. Match Events are sport specific and source agnostic in MS.Platform and Feed Agnostic Framework but they are source and sport specific in Legacy Framework (InPlay.Feeds). Consumer of Match Events need to maintain state of previously published ones as single Match Event only contains data for latest action in a match.
+
+Match State
+Match State is a sport specific data contract that represents the current state of a sport event. It is generated by aggregating all Match Events for that match. Amount of data in Match State contract gradually increases with the progress of an ongoing match as data from each Match Event is applied on top of the data from all previous Match Events. In contrast with Match Events that require from their consumers to maintain state, most recent Match State is the only source of truth that consumers need as it contains all the data previously generated Match States for that match have plus the latest update.
+
+Match Actions
+Set of collections within Match State contract that represent something that happened during a match. For example - Goals, Substitutions, Corners. Each collection contains all Match Actions that happened so far and new Match Actions are only added with the progress of an ongoing match. Match Actions collections are populated based on Match Events.
+
+
+
+create new api which called prod-actions which uses https://platform.matchstate.api.geniussports.com/api/v1/sources/{sourceId}/sports/10/fixtures/{fixtureId}/matchevents
+sourceId * string (path)
+fixtureId *string
+
+Example Value
+Schema
+[
+  {
+    "id": 0,
+    "fixtureId": "string",
+    "sourceId": "string",
+    "dateRaised": "2025-01-11T14:59:27.654Z",
+    "sequenceId": 0,
+    "actionId": 0,
+    "type": "string",
+    "data": "string",
+    "batchId": "string",
+    "version": "string"
+  }
+]
+
