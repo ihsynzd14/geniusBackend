@@ -32,11 +32,11 @@ class AuthService {
     const params = new URLSearchParams({
       audience: "https://api.geniussports.com",
       grant_type: "client_credentials",
-      client_id: geniusConfig.clientId,
-      client_secret: geniusConfig.clientSecret
+      client_id: geniusConfig.clientProdId,
+      client_secret: geniusConfig.clientProdSecret
     });
 
-    const response = await axios.post(geniusConfig.authUrl, params, {
+    const response = await axios.post(geniusConfig.authProdUrl, params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
@@ -64,7 +64,7 @@ class AuthService {
     return {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${this.accessToken}`,
-      'x-api-key': geniusConfig.apiKey
+      'x-api-key': geniusConfig.apiProdKey
     };
   }
 
