@@ -17,7 +17,7 @@ class FixturesService {
         url = `${geniusConfig.fixtureUrlV1}/${fixtureId}`;
         headers = authService.getHeadersV1();
       } else {
-        url = `${geniusConfig.matchStateUrl}/sources/${geniusConfig.sourceId}/sports/${geniusConfig.sportId}/schedule?from=${fromDate}&to=${toDate}`;
+        url = `${geniusConfig.matchProdStateUrl}/sources/${geniusConfig.sourceId}/sports/${geniusConfig.sportId}/schedule?from=${fromDate}&to=${toDate}`;
         headers = authService.getHeaders();
       }
 
@@ -66,7 +66,7 @@ class FixturesService {
         await authService.authenticate();
       }
 
-      const url = `${geniusConfig.matchStateUrl}/sources/${geniusConfig.sourceId}/sports/${geniusConfig.sportId}/fixtures/${fixtureId}/liveaccess`;
+      const url = `${geniusConfig.matchProdStateUrl}/sources/${geniusConfig.sourceId}/sports/${geniusConfig.sportId}/fixtures/${fixtureId}/liveaccess`;
       const response = await axios.get(url, {
         headers: authService.getHeaders()
       });
