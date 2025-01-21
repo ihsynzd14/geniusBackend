@@ -12,6 +12,8 @@ const transformEventType = (type) => {
     'substitutions': 'Substitution',
     'shotsOffTarget': 'Shot Off Target',
     'shotsOnTarget': 'Shot On Target',
+    'offsides': 'Offside',
+    'blockedShots': 'Blocked Shot',
     'goals': 'Goal',
     'yellowCards': 'Yellow Card',
     'redCards': 'Red Card',
