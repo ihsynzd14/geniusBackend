@@ -7,14 +7,15 @@ const feedCache = new LRUCache({
 
 const transformEventType = (type) => {
   const eventTypeMap = {
-    'corners': 'Corner',
+    'corners': 'Corner Awarded',
     'dangerStateChanges': 'Danger State',
     'substitutions': 'Substitution',
     'shotsOffTarget': 'Shot Off Target',
     'shotsOnTarget': 'Shot On Target',
     'offsides': 'Offside',
     'blockedShots': 'Blocked Shot',
-    'goals': 'Goal',
+    'kickOffs': 'Kick Off',
+    'goals': 'Goal Confirmed',
     'yellowCards': 'Yellow Card',
     'redCards': 'Red Card',
     'penalties': 'Penalty',
@@ -43,6 +44,10 @@ const transformDangerState = (state) => {
     'AwayCorner': 'Corner',
     'AwayGoal': 'Goal',
     'AwayFreeKick': 'Free Kick',
+    'AwayAttackingFreeKick': 'Attacking Free Kick',
+    'HomeAttackingFreeKick': 'Attacking Free Kick',
+    'HomeDangerousAttackingFreeKick': 'Dangerous Attacking Free Kick',
+    'AwayDangerousAttackingFreeKick': 'Dangerous Attacking Free Kick',
     'Safe': 'Safe',
     'Danger': 'Danger'
   };
