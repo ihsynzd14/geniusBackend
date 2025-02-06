@@ -19,9 +19,9 @@ const io = new Server(httpServer, {
     credentials: true
   },
   transports: ['websocket'],
-  pingInterval: 10000,
-  pingTimeout: 5000,
-  maxHttpBufferSize: 1e8
+  allowUpgrades: false,
+  pingInterval: 25000,
+  pingTimeout: 10000
 });
 
 app.use(cors());
@@ -43,21 +43,12 @@ io.on('connection', (socket) => {
       if (subscribedFixtures.has(fixtureId)) return;
 
       const ablyFeed = await fixturesService.getAblyFeed(fixtureId);
-      const cachedData = cacheService.getFeedData(fixtureId);
-      
-      if (cachedData) {
-        socket.emit(`fixture:${fixtureId}`, cachedData);
-      }
       
       await ablyService.subscribe(
         fixtureId,
         ablyFeed.accessToken,
         ablyFeed.channelName,
         (data) => {
-          cacheService.setFeedData(fixtureId, data);
-          if (data.actions) {
-            cacheService.setLastAction(fixtureId, data.actions);
-          }
           socket.emit(`fixture:${fixtureId}`, data);
         }
       );

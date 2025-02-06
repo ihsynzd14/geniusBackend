@@ -3,38 +3,13 @@ import { ablyService } from './ably.service.js';
 
 class RouteHandlerService {
   static async getLastAction(fixtureId) {
-    // Try cache first
-    const cachedData = cacheService.getLastAction(fixtureId);
-    if (cachedData && Date.now() - cachedData.timestamp < 100) {
-      return {
-        status: 'success',
-        data: cachedData.data
-      };
-    }
-
     if (!ablyService.isSubscribed(fixtureId)) {
       throw new Error('Feed not found. Please start the feed first.');
     }
 
-    const feedData = ablyService.getFeedData(fixtureId);
-    if (!feedData?.length) {
-      return {
-        status: 'success',
-        data: {
-          fixtureId: parseInt(fixtureId),
-          timestamp: new Date().toISOString(),
-          matchStatus: 'Pending',
-          lastAction: null
-        }
-      };
-    }
-
-    const lastUpdate = feedData[feedData.length - 1];
-    cacheService.setLastAction(fixtureId, lastUpdate);
-
-    return {
-      status: 'success',
-      data: lastUpdate
+    return { 
+      data: ablyService.getRawFeed(fixtureId),
+      _ts: Date.now() 
     };
   }
 

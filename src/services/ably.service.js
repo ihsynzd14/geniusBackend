@@ -3,7 +3,7 @@ import Ably from 'ably';
 class AblyService {
   constructor() {
     this.activeSubscriptions = new Map();
-    this.feedData = new Map();
+    this.rawFeedData = new Map();
   }
 
   processMatchActions(matchActions) {
@@ -338,7 +338,7 @@ class AblyService {
         return;
       }
 
-      this.feedData.set(fixtureId, []);
+      this.rawFeedData.set(fixtureId, []);
 
       const clientOptions = {
         token: ablyToken,
@@ -416,25 +416,17 @@ class AblyService {
           }
 
           const feedUpdate = {
-            fixtureId,
-            timestamp: new Date().toISOString(),
-            matchStatus: matchData.matchStatus,
-            currentVarState: matchData.currentVarState,
-            statistics: matchData.statistics || {},
-            sourceInfo: matchData.sourceInfo || {},
-            teams: {
-              home: matchData.homeTeam,
-              away: matchData.awayTeam
-            },
-            actions: this.processMatchActions(matchData.matchActions)
+            raw: matchData,
+            _geniusTs: message.timestamp,
+            _backendTs: Date.now()
           };
 
-          const fixtureData = this.feedData.get(fixtureId) || [];
+          const fixtureData = this.rawFeedData.get(fixtureId) || [];
           fixtureData.push(feedUpdate);
           if (fixtureData.length > 100) {
             fixtureData.shift();
           }
-          this.feedData.set(fixtureId, fixtureData);
+          this.rawFeedData.set(fixtureId, fixtureData);
 
           onMessage(feedUpdate);
         } catch (error) {
@@ -472,7 +464,7 @@ class AblyService {
           });
         }
         this.activeSubscriptions.delete(fixtureId);
-        this.feedData.delete(fixtureId);
+        this.rawFeedData.delete(fixtureId);
         console.log(`Unsubscribed from fixture ${fixtureId}`);
       }
     } catch (error) {
@@ -485,11 +477,13 @@ class AblyService {
       this.unsubscribe(fixtureId)
     );
     await Promise.all(promises);
-    this.feedData.clear();
+    this.rawFeedData.clear();
   }
 
-  getFeedData(fixtureId) {
-    return this.feedData.get(fixtureId) || [];
+  getRawFeed(fixtureId) {
+    const feedData = this.rawFeedData.get(fixtureId);
+    if (!feedData?.length) return null;
+    return feedData[feedData.length - 1];
   }
 
   isSubscribed(fixtureId) {

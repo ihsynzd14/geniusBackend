@@ -1,22 +1,3 @@
-export const geniusConfig = {
-  user: 'prosperoquantum',
-  password: 'P@ssw0rd!',
-  apiKeyV1: 'rYMEbRnWT22zSSmxjPFA3ajrcqQIQbdq2KsPODz3',
-  authUrlV1: 'https://api.geniussports.com/Auth-v1/PROD/login',
-  refreshUrl: 'https://api.geniussports.com/Auth-v1/PROD/refresh',
-  sourceId: 'GeniusSportsInPlay',
-  sportId: 10, 
-  apiKey: 'lXoO9WOBUS17jvaFx68hUaFwKE8na8Ax70E3dOmK', 
-  apiProdKey: '6SiDCCyUH02RFxFsmTYoa8GYxew9lV81D9IpcXl4', 
-  clientId: 'st9eg3d317igsg0oled7qkred', 
-  clientProdId: '39r374iik8nispgrhu7jka19rq', 
-  clientSecret: '5pbkibe0t42u7epkuv5g4onfiepsoopkp319ppaas29jsd0kabm', 
-  clientProdSecret: '1uf3n1dcg0mfb033uldovqs27nu20pgiqf1hpc874vag8agmtnd4', 
-  authUrl: 'https://uat.auth.api.geniussports.com/oauth2/token', 
-  authProdUrl: 'https://auth.api.geniussports.com/oauth2/token', 
-  matchProdStateUrl: 'https://platform.matchstate.api.geniussports.com/api/v1', 
-  matchStateUrl: 'https://platform.uat.matchstate.api.geniussports.com/api/v1', 
-  msFixtureUrl: 'https://platform.matchstate.api.geniussports.com/api/v1/sources/GeniusSportsInPlay/sports/10/fixtures',
-  fixtureUrl: 'https://fixtures.api.geniussports.com/v2/fixtures',
-  fixtureUrlV1: 'https://api.geniussports.com/Fixtures-v1/PRODPRM/fixtures'
-};
+const env = process.env.NODE_ENV || 'uat';
+const { geniusConfig } = await import(`./genius.${env}.js`);
+export { geniusConfig }; 

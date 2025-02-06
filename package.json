@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node src/server.js",
-    "test": "vitest"
+    "test": "vitest",
+    "uat": "cross-env NODE_ENV=uat node src/server.js",
+    "prod": "cross-env NODE_ENV=prod node src/server.js"
   },
   "dependencies": {
     "ably": "^1.2.48",
@@ -19,6 +21,7 @@
     "ws": "^8.16.0"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "vitest": "^0.34.6"
   }
 }
