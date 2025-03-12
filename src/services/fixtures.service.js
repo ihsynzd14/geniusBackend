@@ -10,7 +10,7 @@ class FixturesService {
       }
 
       const fromDate = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-      const toDate = new Date().toISOString();
+      const toDate = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
       let url, headers;
       if (fixtureId) {
