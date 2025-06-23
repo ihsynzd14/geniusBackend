@@ -6,17 +6,18 @@ export const geniusConfig = {
   refreshUrl: 'https://api.geniussports.com/Auth-v1/PROD/refresh',
   sourceId: 'GeniusSportsInPlay',
   sportId: 10, 
-  apiKey: 'lXoO9WOBUS17jvaFx68hUaFwKE8na8Ax70E3dOmK', 
   apiProdKey: '6SiDCCyUH02RFxFsmTYoa8GYxew9lV81D9IpcXl4', 
-  clientId: 'st9eg3d317igsg0oled7qkred', 
   clientProdId: '39r374iik8nispgrhu7jka19rq', 
-  clientSecret: '5pbkibe0t42u7epkuv5g4onfiepsoopkp319ppaas29jsd0kabm', 
   clientProdSecret: '1uf3n1dcg0mfb033uldovqs27nu20pgiqf1hpc874vag8agmtnd4', 
-  authUrl: 'https://uat.auth.api.geniussports.com/oauth2/token', 
   authProdUrl: 'https://auth.api.geniussports.com/oauth2/token', 
   matchProdStateUrl: 'https://platform.matchstate.api.geniussports.com/api/v1', 
-  matchStateUrl: 'https://platform.uat.matchstate.api.geniussports.com/api/v1', 
   msFixtureUrl: 'https://platform.matchstate.api.geniussports.com/api/v1/sources/GeniusSportsInPlay/sports/10/fixtures',
-  fixtureUrl: 'https://fixtures.api.geniussports.com/v2/fixtures',
-  fixtureUrlV1: 'https://api.geniussports.com/Fixtures-v1/PRODPRM/fixtures'
+  fixtureUrlV1: 'https://api.geniussports.com/Fixtures-v1/PRODPRM/fixtures',
+
+  // V2 API
+  apiProdKeyV2: 'CQNFZyMmyP7gFhgxa4mgL8tFYVeuzGxD9mD8XY87', 
+  clientProdIdV2: 'bKScSIHmOFFcjVcbcHv4qKQmQGsSr8Ka', 
+  clientProdSecretV2: 'w4DWBP9J41MGI_HVoYz6WOQr7EgjbCh3P7-GFnmWPFDC2olqwtnVj7g9Rwf2RDkY', 
+  authProdUrlV2: 'https://auth.geniussports.com/oauth/token', 
+  fixtureUrlV2: 'https://fixtures.api.geniussports.com/v2'
 };

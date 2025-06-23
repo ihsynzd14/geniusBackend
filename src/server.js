@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fixturesService } from './services/fixtures.service.js';
+import { fixturesV2Service } from './services/fixturesV2.service.js';
 import { ablyService } from './services/ably.service.js';
 import { cacheService } from './services/cache.services.js';
 import { RouteHandlerService } from './services/route-handler.service.js';
@@ -193,6 +194,62 @@ app.post('/api/feed/stop-all', async (req, res) => {
     res.json({ message: 'All feeds stopped' });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// V2 API Routes
+app.get('/api/v2/fixtures/live', async (req, res) => {
+  try {
+    const fixtures = await fixturesV2Service.getLiveFixtures();
+    res.json(fixtures);
+  } catch (error) {
+    console.error('Error fetching live fixtures (V2):', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch live fixtures',
+      message: error.message 
+    });
+  }
+});
+
+app.get('/api/v2/fixtures/recent', async (req, res) => {
+  try {
+    const page = req.query.page ? parseInt(req.query.page) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 25;
+    
+    const fixtures = await fixturesV2Service.getRecentAndCurrentFixtures(10, limit, page);
+    res.json(fixtures);
+  } catch (error) {
+    console.error('Error fetching recent fixtures (V2):', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch recent fixtures',
+      message: error.message 
+    });
+  }
+});
+
+app.get('/api/v2/fixtures/:id', async (req, res) => {
+  try {
+    const fixture = await fixturesV2Service.getFixtureById(req.params.id);
+    res.json(fixture);
+  } catch (error) {
+    console.error(`Error fetching fixture ${req.params.id} (V2):`, error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch fixture details',
+      message: error.message 
+    });
+  }
+});
+
+app.get('/api/v2/fixtures/:id/statistics', async (req, res) => {
+  try {
+    const statistics = await fixturesV2Service.getStatistics(req.params.id);
+    res.json(statistics);
+  } catch (error) {
+    console.error(`Error fetching fixture statistics ${req.params.id} (V2):`, error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch fixture statistics',
+      message: error.message 
+    });
   }
 });
 

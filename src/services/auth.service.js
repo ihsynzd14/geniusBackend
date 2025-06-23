@@ -6,19 +6,22 @@ class AuthService {
     this.accessToken = null;
     this.idToken = null;
     this.refreshToken = null;
+    this.accessTokenV2 = null;
   }
 
   async authenticate() {
     try {
-      const [geniusAuth, geniusAuthV1] = await Promise.all([
+      const [geniusAuth, geniusAuthV1, geniusAuthV2] = await Promise.all([
         this.authGenius(),
-        this.authGeniusV1()
+        this.authGeniusV1(),
+        this.authGeniusV2()
       ]);
 
-      if (geniusAuth.access_token && geniusAuthV1.IdToken) {
+      if (geniusAuth.access_token && geniusAuthV1.IdToken && geniusAuthV2.access_token) {
         this.accessToken = geniusAuth.access_token;
         this.idToken = geniusAuthV1.IdToken;
         this.refreshToken = geniusAuthV1.RefreshToken;
+        this.accessTokenV2 = geniusAuthV2.access_token;
         return true;
       }
       return false;
@@ -60,6 +63,20 @@ class AuthService {
     return response.data;
   }
 
+  async authGeniusV2() {
+    const body = {
+      client_id: geniusConfig.clientProdIdV2,
+      client_secret: geniusConfig.clientProdSecretV2,
+      audience: 'https://api.geniussports.com',
+      grant_type: 'client_credentials'
+    };
+
+    const response = await axios.post(geniusConfig.authProdUrlV2, body, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return response.data;
+  }
+
   getHeaders() {
     return {
       'Content-Type': 'application/json',
@@ -73,6 +90,14 @@ class AuthService {
       'Content-Type': 'application/json',
       'Authorization': this.idToken,
       'x-api-key': geniusConfig.apiKeyV1
+    };
+  }
+
+  getHeadersV2() {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${this.accessTokenV2}`,
+      'x-api-key': geniusConfig.apiProdKeyV2
     };
   }
 }

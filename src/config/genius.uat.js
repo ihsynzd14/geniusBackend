@@ -18,5 +18,12 @@ export const geniusConfig = {
   matchStateUrl: 'https://platform.uat.matchstate.api.geniussports.com/api/v1', 
   msFixtureUrl: 'https://platform.matchstate.api.geniussports.com/api/v1/sources/GeniusSportsInPlay/sports/10/fixtures',
   fixtureUrl: 'https://fixtures.api.geniussports.com/v2/fixtures',
-  fixtureUrlV1: 'https://api.geniussports.com/Fixtures-v1/PRODPRM/fixtures'
+  fixtureUrlV1: 'https://api.geniussports.com/Fixtures-v1/PRODPRM/fixtures',
+
+    // V2 API
+    apiProdKeyV2: 'jkSeaAyBS23E8VXKC40Sz1pr9R3haXfE2R6fcz8O', 
+    clientProdIdV2: 'y3eiqVzTCdmJMasSp36iFOlJ3RTDYTet', 
+    clientProdSecretV2: 'p56NaeTjcXsR5llqBdfiXFN4NKPaBxu6Ntpba8f-GJ2pFmfdWbOP3uvVCa2q_M6h', 
+    authProdUrlV2: 'https://uat.auth.geniussports.com/oauth/token', 
+    fixtureUrlV2: 'https://uat.fixtures.api.geniussports.com/v2'
 }; 

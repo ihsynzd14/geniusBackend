@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "node src/server.js",
     "test": "vitest",
-    "uat": "cross-env NODE_ENV=uat node src/server.js",
-    "prod": "cross-env NODE_ENV=prod node src/server.js"
+    "test:v2": "node src/tests/v2-api-test.js",
+    "uat": "cross-env NODE_ENV=uat nodemon src/server.js",
+    "prod": "cross-env NODE_ENV=prod nodemon src/server.js"
   },
   "dependencies": {
     "ably": "^1.2.48",
