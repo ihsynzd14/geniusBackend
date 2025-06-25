@@ -215,8 +215,9 @@ app.get('/api/v2/fixtures/recent', async (req, res) => {
   try {
     const page = req.query.page ? parseInt(req.query.page) : 1;
     const limit = req.query.limit ? parseInt(req.query.limit) : 25;
+    const search = req.query.search;
     
-    const fixtures = await fixturesV2Service.getRecentAndCurrentFixtures(10, limit, page);
+    const fixtures = await fixturesV2Service.getRecentAndCurrentFixtures(10, limit, page, search);
     res.json(fixtures);
   } catch (error) {
     console.error('Error fetching recent fixtures (V2):', error.message);

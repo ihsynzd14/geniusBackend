@@ -201,12 +201,18 @@ class FixturesV2Service {
     }
   }
 
-  async getRecentAndCurrentFixtures(sportId = 10, limit = 20, page = 1) {
-    const now = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    const oneWeekAhead = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  async getRecentAndCurrentFixtures(sportId = 10, limit = 20, page = 1, search = null) {
+    const now = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    const oneWeekAhead = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+    
+    let filter = `sportId[equals]:${sportId}~startDate[gte]:${now}~startDate[lte]:${oneWeekAhead}`;
+    
+    if (search) {
+      filter += `~name[contains]:${encodeURIComponent(search)}`;
+    }
     
     return this.getFixtures({
-      filter: `sportId[equals]:${sportId}~startDate[gte]:${now}~startDate[lte]:${oneWeekAhead}`,
+      filter: filter,
       sortBy: 'startDate',
       page: page,
       pageSize: limit
