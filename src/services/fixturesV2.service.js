@@ -219,6 +219,67 @@ class FixturesV2Service {
     });
   }
   
+  async getFixturesByCompetitions(competitionIds, additionalParams = {}) {
+    try {
+      if (!authService.accessTokenV2) {
+        await authService.authenticate();
+      }
+
+      // Validate input
+      if (!competitionIds || !Array.isArray(competitionIds) || competitionIds.length === 0) {
+        throw new Error('competitionIds must be a non-empty array');
+      }
+
+      // Create filter for multiple competition IDs
+      // Format: competitionId[in]:123,456,789
+      const competitionFilter = `competitionId[in]:${competitionIds.join(',')}`;
+      
+      // Add date filtering by default (like getRecentAndCurrentFixtures)
+      let combinedFilter = competitionFilter;
+      
+      // Check if date filtering should be applied (default: true)
+      const includeDateFilter = additionalParams.includeDateFilter !== false;
+      
+      if (includeDateFilter) {
+        // Use same date range as getRecentAndCurrentFixtures: 12 hours ago to 12 hours ahead
+        const now = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+        const oneWeekAhead = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+        combinedFilter += `~startDate[gte]:${now}~startDate[lte]:${oneWeekAhead}`;
+      }
+      
+      // Merge with additional parameters
+      const params = {
+        filter: combinedFilter,
+        sortBy: 'startDate',
+        page: 1,
+        pageSize: 100,
+        ...additionalParams
+      };
+
+      // Remove includeDateFilter from params as it's not a valid API parameter
+      delete params.includeDateFilter;
+
+      // If there are additional filters, combine them
+      if (additionalParams.filter) {
+        params.filter = `${combinedFilter}~${additionalParams.filter}`;
+      }
+
+      const url = `${geniusConfig.fixtureUrlV2.replace('http:', 'https:')}/fixtures`;
+      const response = await axios.get(url, {
+        headers: authService.getHeadersV2(),
+        params
+      });
+      
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        await authService.authenticate();
+        return this.getFixturesByCompetitions(competitionIds, additionalParams);
+      }
+      throw error;
+    }
+  }
+
   async getStatistics(fixtureId) {
     try {
       if (!authService.accessTokenV2) {

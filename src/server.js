@@ -254,6 +254,109 @@ app.get('/api/v2/fixtures/:id/statistics', async (req, res) => {
   }
 });
 
+app.get('/api/v2/competitions', async (req, res) => {
+  try {
+    const sportId = req.query.sportId || 10; // Default to sport ID 10 (football)
+    const page = req.query.page ? parseInt(req.query.page) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 50; 
+    const params = {
+      filter: `sport.id[equals]:${sportId}`,
+      page: page,
+      pageSize: limit
+    };
+    
+    // Add additional filters if provided
+    if (req.query.search) {
+      params.filter += `~name[contains]:${encodeURIComponent(req.query.search)}`;
+    }
+    
+    if (req.query.sortBy) {
+      params.sortBy = req.query.sortBy;
+    }
+    
+    const competitions = await fixturesV2Service.getCompetitions(params);
+    res.json(competitions);
+  } catch (error) {
+    console.error('Error fetching competitions (V2):', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch competitions',
+      message: error.message 
+    });
+  }
+});
+
+app.post('/api/v2/fixtures/by-competitions', async (req, res) => {
+  try {
+    const { competitionIds, includeDateFilter = true, dateRange, ...additionalParams } = req.body;
+    
+    // Validate required fields
+    if (!competitionIds) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'competitionIds is required in request body'
+      });
+    }
+
+    if (!Array.isArray(competitionIds)) {
+      return res.status(400).json({
+        error: 'Bad Request', 
+        message: 'competitionIds must be an array'
+      });
+    }
+
+    if (competitionIds.length === 0) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'competitionIds array cannot be empty'
+      });
+    }
+
+    // Validate that all IDs are numbers
+    const invalidIds = competitionIds.filter(id => !Number.isInteger(id) && !Number.isInteger(Number(id)));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: `Invalid competition IDs: ${invalidIds.join(', ')}. All IDs must be numbers.`
+      });
+    }
+
+    // Convert to numbers if they're strings
+    const numericIds = competitionIds.map(id => Number(id));
+    
+    // Handle custom date range if provided
+    const params = { 
+      includeDateFilter,
+      ...additionalParams 
+    };
+    
+    // If custom date range is provided, override the default date filtering
+    if (dateRange && dateRange.startDate && dateRange.endDate) {
+      params.includeDateFilter = false; // Disable default date filtering
+      const customDateFilter = `startDate[gte]:${dateRange.startDate}~startDate[lte]:${dateRange.endDate}`;
+      params.filter = params.filter ? `${params.filter}~${customDateFilter}` : customDateFilter;
+    }
+    
+    const fixtures = await fixturesV2Service.getFixturesByCompetitions(numericIds, params);
+    
+    res.json({
+      ...fixtures,
+      requestedCompetitions: numericIds.length,
+      competitionIds: numericIds,
+      dateFilterApplied: includeDateFilter || !!dateRange,
+      dateRange: dateRange || (includeDateFilter ? {
+        startDate: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
+      } : null)
+    });
+  } catch (error) {
+    console.error('Error fetching fixtures by competitions (V2):', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch fixtures for competitions',
+      message: error.message 
+    });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
