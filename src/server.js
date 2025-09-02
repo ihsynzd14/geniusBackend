@@ -197,6 +197,132 @@ app.post('/api/feed/stop-all', async (req, res) => {
   }
 });
 
+// Fetch multiple fixtures by their IDs
+app.post('/api/v2/fixtures/by-ids', async (req, res) => {
+  try {
+    const { fixtureIds, ...additionalParams } = req.body;
+    
+    // Validate required fields
+    if (!fixtureIds) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'fixtureIds is required in request body'
+      });
+    }
+
+    if (!Array.isArray(fixtureIds)) {
+      return res.status(400).json({
+        error: 'Bad Request', 
+        message: 'fixtureIds must be an array'
+      });
+    }
+
+    if (fixtureIds.length === 0) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'fixtureIds array cannot be empty'
+      });
+    }
+
+    // Validate that all IDs are numbers
+    const invalidIds = fixtureIds.filter(id => !Number.isInteger(id) && !Number.isInteger(Number(id)));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: `Invalid fixture IDs: ${invalidIds.join(', ')}. All IDs must be numbers.`
+      });
+    }
+
+    // Convert to numbers if they're strings
+    const numericIds = fixtureIds.map(id => Number(id));
+    
+    // Prepare filter for multiple IDs
+    const filter = `id[in]:${numericIds.join(',')}`;
+    
+    // Prepare parameters for the API call
+    const params = {
+      filter: filter,
+      ...additionalParams
+    };
+    
+    // Fetch fixtures from the service
+    const fixtures = await fixturesV2Service.getFixtures(params);
+    
+    res.json({
+      ...fixtures,
+      requestedFixtures: numericIds.length,
+      fixtureIds: numericIds
+    });
+  } catch (error) {
+    console.error('Error fetching fixtures by IDs (V2):', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch fixtures by IDs',
+      message: error.message 
+    });
+  }
+});
+
+// Fetch multiple fixtures by their IDs (GET version)
+app.get('/api/v2/fixtures', async (req, res) => {
+  try {
+    const { ids, ...queryParams } = req.query;
+    
+    // Validate required fields
+    if (!ids) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'ids parameter is required'
+      });
+    }
+
+    // Parse IDs from comma-separated string
+    const fixtureIds = ids.split(',').map(id => id.trim());
+    
+    if (fixtureIds.length === 0) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'ids parameter cannot be empty'
+      });
+    }
+
+    // Validate that all IDs are numbers
+    const invalidIds = fixtureIds.filter(id => !Number.isInteger(Number(id)));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: `Invalid fixture IDs: ${invalidIds.join(', ')}. All IDs must be numbers.`
+      });
+    }
+
+    // Convert to numbers
+    const numericIds = fixtureIds.map(id => Number(id));
+    
+    // Prepare filter for multiple IDs
+    const filter = `id[in]:${numericIds.join(',')}`;
+    
+    // Prepare parameters for the API call
+    const params = {
+      filter: filter,
+      ...queryParams
+    };
+    
+    // Fetch fixtures from the service
+    const fixtures = await fixturesV2Service.getFixtures(params);
+    
+    res.json({
+      ...fixtures,
+      requestedFixtures: numericIds.length,
+      fixtureIds: numericIds
+    });
+  } catch (error) {
+    console.error('Error fetching fixtures by IDs (V2):', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch fixtures by IDs',
+      message: error.message 
+    });
+  }
+});
+
 // V2 API Routes
 app.get('/api/v2/fixtures/live', async (req, res) => {
   try {
@@ -216,8 +342,9 @@ app.get('/api/v2/fixtures/recent', async (req, res) => {
     const page = req.query.page ? parseInt(req.query.page) : 1;
     const limit = req.query.limit ? parseInt(req.query.limit) : 25;
     const search = req.query.search;
+    const status = req.query.status;
     
-    const fixtures = await fixturesV2Service.getRecentAndCurrentFixtures(10, limit, page, search);
+    const fixtures = await fixturesV2Service.getRecentAndCurrentFixtures(10, limit, page, search, status);
     res.json(fixtures);
   } catch (error) {
     console.error('Error fetching recent fixtures (V2):', error.message);

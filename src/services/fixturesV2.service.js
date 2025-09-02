@@ -201,7 +201,7 @@ class FixturesV2Service {
     }
   }
 
-  async getRecentAndCurrentFixtures(sportId = 10, limit = 20, page = 1, search = null) {
+  async getRecentAndCurrentFixtures(sportId = 10, limit = 20, page = 1, search = null, status = null) {
     const now = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
     const oneWeekAhead = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
     
@@ -209,6 +209,14 @@ class FixturesV2Service {
     
     if (search) {
       filter += `~name[contains]:${encodeURIComponent(search)}`;
+    }
+    
+    // Handle status filtering
+    if (status === 'notfinished') {
+      filter += `~eventStatusType[notequals]:Finished`;
+    } else if (status) {
+      // Allow filtering by any specific status
+      filter += `~eventStatusType[equals]:${status}`;
     }
     
     return this.getFixtures({
