@@ -35,8 +35,7 @@ class FixturesService {
   async getLiveEvents() {
     const fixtures = await this.getFixtures();
     return fixtures.filter(fixture => 
-      fixture.status !== 'Cancelled' && 
-      fixture.origin === 'Venue'
+      fixture.status !== 'Cancelled'
     );
   }
 
