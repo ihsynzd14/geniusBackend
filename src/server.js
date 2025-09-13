@@ -484,7 +484,67 @@ app.post('/api/v2/fixtures/by-competitions', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const tryPort = (port) => {
+  return new Promise((resolve, reject) => {
+    const testServer = createServer();
+    
+    testServer.once('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`Port ${port} is already in use, trying alternative...`);
+        testServer.close();
+        resolve(false);
+      } else {
+        reject(err);
+      }
+    });
+    
+    testServer.once('listening', () => {
+      testServer.close();
+      resolve(true);
+    });
+    
+    testServer.listen(port);
+  });
+};
+
+// When the server starts, it will be accessible at IP address 51.89.167.87
+// along with the port that's available (either 3000 or 3003)
+const startServer = async () => {
+  const PRIMARY_PORT = process.env.PORT || 3000;
+  const FALLBACK_PORT = 3003;
+  
+  let PORT = PRIMARY_PORT;
+  
+  // Check if primary port is available
+  const isPrimaryPortAvailable = await tryPort(PRIMARY_PORT);
+  
+  if (!isPrimaryPortAvailable) {
+    console.log(`Trying fallback port ${FALLBACK_PORT}...`);
+    const isFallbackPortAvailable = await tryPort(FALLBACK_PORT);
+    
+    if (!isFallbackPortAvailable) {
+      console.error(`Both ports ${PRIMARY_PORT} and ${FALLBACK_PORT} are in use. Please specify a different port via the PORT environment variable.`);
+      process.exit(1);
+    }
+    
+    PORT = FALLBACK_PORT;
+  }
+  
+  // To explicitly bind to a specific IP address, uncomment and use this code instead:
+  /*
+  const SERVER_IP = '51.89.167.87';
+  httpServer.listen(PORT, SERVER_IP, () => {
+    console.log(`Server running at http://${SERVER_IP}:${PORT}`);
+  });
+  */
+  
+  // Currently using default binding (all interfaces)
+  httpServer.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
+};
+
+startServer().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
