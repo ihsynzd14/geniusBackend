@@ -1,9 +1,11 @@
 import Ably from 'ably';
+import { tokenManager } from './token.manager.js';
 
 class AblyService {
   constructor() {
     this.activeSubscriptions = new Map();
     this.rawFeedData = new Map();
+    this.subscriptionLocks = new Map(); // fixtureId -> Promise
   }
 
   processMatchActions(matchActions) {
@@ -333,23 +335,37 @@ class AblyService {
 
   async subscribe(fixtureId, ablyToken, channelName, onMessage) {
     try {
-      if (this.activeSubscriptions.has(fixtureId)) {
-        console.log(`Already subscribed to fixture ${fixtureId}`);
-        return;
+      // Create a lock for this fixture to prevent race conditions
+      if (!this.subscriptionLocks.has(fixtureId)) {
+        this.subscriptionLocks.set(fixtureId, Promise.resolve());
       }
 
-      this.rawFeedData.set(fixtureId, []);
+      // Get the current lock and create a new one
+      const currentLock = this.subscriptionLocks.get(fixtureId);
+      const newLock = currentLock.then(async () => {
+        // Check again after acquiring lock
+        if (this.activeSubscriptions.has(fixtureId)) {
+          console.log(`Already subscribed to fixture ${fixtureId} (after lock acquisition)`);
+          return;
+        }
 
-      const clientOptions = {
-        token: ablyToken,
-        authCallback: async (tokenParams, callback) => {
-          try {
-            const ablyFeed = await fixturesService.getAblyFeed(fixtureId);
-            callback(null, { token: ablyFeed.accessToken });
-          } catch (error) {
-            callback(error, null);
-          }
-        },
+        console.log(`Creating Ably subscription for fixture ${fixtureId} with channel ${channelName}`);
+        this.rawFeedData.set(fixtureId, []);
+
+        const clientOptions = {
+          token: ablyToken,
+          authCallback: async (tokenParams, callback) => {
+            try {
+              // Use token manager to get shared token for refresh
+              console.log(`Token refresh requested for fixture ${fixtureId}`);
+              const ablyFeed = await tokenManager.getTokenForFixture(fixtureId);
+              console.log(`Token refreshed successfully for fixture ${fixtureId}`);
+              callback(null, { token: ablyFeed.accessToken });
+            } catch (error) {
+              console.error(`Token refresh failed for fixture ${fixtureId}:`, error);
+              callback(error, null);
+            }
+          },
         environment: 'geniussports',
         fallbackHosts: [
           'geniussports-a-fallback.ably-realtime.com',
@@ -396,7 +412,12 @@ class AblyService {
 
       channel.on('detached', () => {
         console.log(`Channel ${channelName} detached, attempting to reattach...`);
-        channel.attach();
+        // Add a small delay before reattaching to prevent rapid reconnection attempts
+        setTimeout(() => {
+          if (this.activeSubscriptions.has(fixtureId)) {
+            channel.attach();
+          }
+        }, 1000);
       });
 
       channel.on('error', async (err) => {
@@ -434,8 +455,16 @@ class AblyService {
         }
       });
 
-      this.activeSubscriptions.set(fixtureId, { client, channel });
-      console.log(`Subscribed to fixture ${fixtureId}`);
+        this.activeSubscriptions.set(fixtureId, { client, channel });
+        console.log(`Subscribed to fixture ${fixtureId}`);
+      });
+
+      // Update the lock
+      this.subscriptionLocks.set(fixtureId, newLock);
+
+      // Wait for the operation to complete
+      await newLock;
+
     } catch (error) {
       console.error(`Error subscribing to fixture ${fixtureId}:`, error);
       await this.unsubscribe(fixtureId);
@@ -486,10 +515,37 @@ class AblyService {
     return feedData[feedData.length - 1];
   }
 
+  getRecentFeedData(fixtureId, limit = 10) {
+    const feedData = this.rawFeedData.get(fixtureId);
+    if (!feedData?.length) return [];
+
+    // Return the most recent feed data, up to the limit
+    const startIndex = Math.max(0, feedData.length - limit);
+    const recentData = feedData.slice(startIndex);
+
+    // Also log what we're returning for debugging
+    console.log(`Retrieved ${recentData.length} recent feed items for fixture ${fixtureId}`);
+    if (recentData.length > 0) {
+      console.log(`Most recent item timestamp: ${recentData[recentData.length - 1]._backendTs}`);
+      console.log(`Oldest item timestamp: ${recentData[0]._backendTs}`);
+    }
+
+    return recentData;
+  }
+
+  getAllCachedData(fixtureId) {
+    const feedData = this.rawFeedData.get(fixtureId);
+    return feedData || [];
+  }
+
   isSubscribed(fixtureId) {
     const subscription = this.activeSubscriptions.get(fixtureId);
     if (!subscription) return false;
-    return subscription.client.connection.state === 'connected';
+    
+    // Consider subscription active if we have a client and channel, regardless of connection state
+    // This allows multiple users to join the same subscription even during temporary disconnections
+    const connectionState = subscription.client.connection.state;
+    return connectionState === 'connected' || connectionState === 'connecting' || connectionState === 'disconnected';
   }
 }
 

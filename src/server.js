@@ -9,7 +9,8 @@ import { cacheService } from './services/cache.services.js';
 import { RouteHandlerService } from './services/route-handler.service.js';
 import { feedRoutes } from './routes/feed.routes.js';
 import { fixtureApiRoutes } from './routes/fixtureApi.routes.js';
-import { detailedFixturesService } from './services/detailed.fixtures.service.js'
+import { detailedFixturesService } from './services/detailed.fixtures.service.js';
+import { tokenManager } from './services/token.manager.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -41,21 +42,78 @@ io.on('connection', (socket) => {
 
   socket.on('subscribe', async (fixtureId) => {
     try {
-      if (subscribedFixtures.has(fixtureId)) return;
+      if (subscribedFixtures.has(fixtureId)) {
+        console.log(`Socket ${socket.id} already subscribed to fixture ${fixtureId}`);
+        return;
+      }
 
-      const ablyFeed = await fixturesService.getAblyFeed(fixtureId);
-      
-      await ablyService.subscribe(
-        fixtureId,
-        ablyFeed.accessToken,
-        ablyFeed.channelName,
-        (data) => {
-          socket.emit(`fixture:${fixtureId}`, data);
+      console.log(`Socket ${socket.id} subscribing to fixture ${fixtureId}`);
+
+      // Use token manager to get shared token for this fixture
+      const ablyFeed = await tokenManager.getTokenForFixture(fixtureId);
+
+      // Track this user for token management
+      tokenManager.addUserToToken(fixtureId, socket.id);
+
+      // Check if Ably is already subscribed to this fixture
+      if (!ablyService.isSubscribed(fixtureId)) {
+        console.log(`Creating new Ably subscription for fixture ${fixtureId}`);
+        await ablyService.subscribe(
+          fixtureId,
+          ablyFeed.accessToken,
+          ablyFeed.channelName,
+          (data) => {
+            // Broadcast to all sockets in the room
+            io.to(`fixture:${fixtureId}`).emit(`fixture:${fixtureId}`, data);
+          }
+        );
+      } else {
+        console.log(`Using existing Ably subscription for fixture ${fixtureId}`);
+
+        // Send recent cached data to the new user to catch them up
+        const recentData = ablyService.getRecentFeedData(fixtureId, 10);
+        if (recentData.length > 0) {
+          console.log(`Sending ${recentData.length} recent updates to new user ${socket.id}`);
+          // Send cached data immediately to catch up, but with a small delay to ensure socket is ready
+          setTimeout(() => {
+            recentData.forEach((data, index) => {
+              setTimeout(() => {
+                socket.emit(`fixture:${fixtureId}`, data);
+              }, index * 50); // Stagger messages to prevent overwhelming
+            });
+          }, 100);
+        } else {
+          console.log(`No recent data available for fixture ${fixtureId}, user will receive next real-time updates`);
+          // Send a confirmation message even if no data is available
+          socket.emit(`fixture:${fixtureId}`, {
+            raw: {
+              matchActions: {},
+              homeTeam: null,
+              awayTeam: null,
+              fixture: { id: fixtureId, status: 'waiting_for_data' }
+            },
+            _geniusTs: Date.now(),
+            _backendTs: Date.now(),
+            _systemMessage: 'Waiting for live data stream'
+          });
         }
-      );
+      }
 
       subscribedFixtures.add(fixtureId);
       socket.join(`fixture:${fixtureId}`);
+
+      console.log(`Socket ${socket.id} successfully subscribed to fixture ${fixtureId}`);
+      
+      // Confirm the user is in the room and will receive broadcasts
+      const room = io.sockets.adapter.rooms.get(`fixture:${fixtureId}`);
+      console.log(`Room fixture:${fixtureId} now has ${room?.size || 0} users`);
+      
+      // Send a confirmation message to the user
+      socket.emit(`fixture:${fixtureId}:connected`, { 
+        message: 'Successfully connected to real-time feed',
+        timestamp: Date.now(),
+        roomSize: room?.size || 0
+      });
     } catch (error) {
       console.error(`Error subscribing to fixture ${fixtureId}:`, error);
       socket.emit('error', { message: 'Failed to subscribe to fixture feed' });
@@ -65,7 +123,10 @@ io.on('connection', (socket) => {
   socket.on('unsubscribe', async (fixtureId) => {
     subscribedFixtures.delete(fixtureId);
     socket.leave(`fixture:${fixtureId}`);
-    
+
+    // Remove user from token tracking
+    tokenManager.removeUserFromToken(fixtureId, socket.id);
+
     const room = io.sockets.adapter.rooms.get(`fixture:${fixtureId}`);
     if (!room?.size) {
       await ablyService.unsubscribe(fixtureId);
@@ -75,6 +136,9 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', async () => {
     for (const fixtureId of subscribedFixtures) {
+      // Remove user from token tracking for each fixture
+      tokenManager.removeUserFromToken(fixtureId, socket.id);
+
       const room = io.sockets.adapter.rooms.get(`fixture:${fixtureId}`);
       if (!room?.size) {
         await ablyService.unsubscribe(fixtureId);
@@ -118,6 +182,7 @@ app.get('/api/fixtures/:id', async (req, res) => {
   }
 });
 
+/*comment from here
 // API Routes with optimized handlers
 app.get('/api/feed/:id/last-action', async (req, res) => {
   try {
@@ -130,6 +195,8 @@ app.get('/api/feed/:id/last-action', async (req, res) => {
     });
   }
 });
+*/
+
 
 app.post('/api/feed/:id/view', async (req, res) => {
   try {
@@ -153,7 +220,7 @@ app.post('/api/feed/start/:id', async (req, res) => {
       return res.json({ message: 'Feed already active', fixtureId });
     }
 
-    const ablyFeed = await fixturesService.getAblyFeed(fixtureId);
+    const ablyFeed = await tokenManager.getTokenForFixture(fixtureId);
     
     await ablyService.subscribe(
       fixtureId,
