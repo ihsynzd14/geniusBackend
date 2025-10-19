@@ -11,6 +11,7 @@
     "prod": "cross-env NODE_ENV=prod nodemon src/server.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.75.0",
     "ably": "^1.2.48",
     "axios": "^1.6.2",
     "cors": "^2.8.5",

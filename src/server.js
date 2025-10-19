@@ -9,6 +9,7 @@ import { cacheService } from './services/cache.services.js';
 import { RouteHandlerService } from './services/route-handler.service.js';
 import { feedRoutes } from './routes/feed.routes.js';
 import { fixtureApiRoutes } from './routes/fixtureApi.routes.js';
+import { sessionRoutes } from './routes/session.routes.js';
 import { detailedFixturesService } from './services/detailed.fixtures.service.js';
 import { tokenManager } from './services/token.manager.js';
 
@@ -32,6 +33,7 @@ app.use(express.json());
 // Mount feed routes
 app.use('/api/feed', feedRoutes);
 app.use('/api/fixtures', fixtureApiRoutes);
+app.use('/api/sessions', sessionRoutes);
 // In-memory cache for last actions
 const lastActionsCache = new Map();
 const feedDataCache = new Map();
@@ -39,6 +41,56 @@ const feedDataCache = new Map();
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   const subscribedFixtures = new Set();
+  let userSession = null;
+
+  // Handle session authentication
+  socket.on('authenticate', async (data) => {
+    try {
+      const { userId, sessionId } = data;
+
+      if (!userId || !sessionId) {
+        socket.emit('auth_error', { message: 'Missing userId or sessionId' });
+        return;
+      }
+
+      // Verify session with backend
+      const response = await fetch(`${process.env.API_BASE_URL || 'http://localhost:3000'}/api/sessions/check/${sessionId}`);
+      const sessionData = await response.json();
+
+      if (sessionData.valid) {
+        userSession = sessionData.session;
+        socket.userId = userId;
+        socket.sessionId = sessionId;
+        socket.join(`user:${userId}`);
+
+        socket.emit('auth_success', {
+          message: 'Session authenticated',
+          session: userSession
+        });
+
+        console.log(`Socket ${socket.id} authenticated for user ${userId}`);
+      } else {
+        socket.emit('auth_error', {
+          message: 'Invalid or expired session',
+          reason: sessionData.reason
+        });
+      }
+    } catch (error) {
+      console.error('Session authentication error:', error);
+      socket.emit('auth_error', { message: 'Authentication failed' });
+    }
+  });
+
+  // Handle session invalidation notification
+  socket.on('session_invalidated', (data) => {
+    if (data.userId === socket.userId && data.sessionId !== socket.sessionId) {
+      console.log(`Session ${socket.sessionId} invalidated for user ${socket.userId}`);
+      socket.emit('force_logout', {
+        message: 'You have been logged in from another device',
+        reason: 'session_replaced'
+      });
+    }
+  });
 
   socket.on('subscribe', async (fixtureId) => {
     try {
@@ -483,6 +535,11 @@ app.post('/api/v2/fixtures/by-competitions', async (req, res) => {
   try {
     const { competitionIds, includeDateFilter = true, dateRange, ...additionalParams } = req.body;
     
+    // Extract query parameters (page, limit, search) from URL query string
+    const page = req.query.page ? parseInt(req.query.page) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 25;
+    const search = req.query.search;
+    
     // Validate required fields
     if (!competitionIds) {
       return res.status(400).json({
@@ -520,8 +577,15 @@ app.post('/api/v2/fixtures/by-competitions', async (req, res) => {
     // Handle custom date range if provided
     const params = { 
       includeDateFilter,
+      page,
+      limit,
       ...additionalParams 
     };
+    
+    // Add search if provided
+    if (search && search.trim()) {
+      params.search = search.trim();
+    }
     
     // If custom date range is provided, override the default date filtering
     if (dateRange && dateRange.startDate && dateRange.endDate) {
