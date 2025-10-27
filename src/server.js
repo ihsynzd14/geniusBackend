@@ -17,7 +17,12 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3001",
+    origin: process.env.FRONTEND_URL || [
+      "http://51.89.167.87:3001",
+      "https://www.psychoff.com",
+      "https://psychoff.com",
+      "https://radar.psychoff.com"
+    ],
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -671,7 +676,7 @@ const startServer = async () => {
   
   // Currently using default binding (all interfaces)
   httpServer.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`Server running at http://51.89.167.87:${PORT}`);
   });
 };
 
