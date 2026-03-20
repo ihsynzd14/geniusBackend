@@ -160,13 +160,13 @@ io.on('connection', (socket) => {
       socket.join(`fixture:${fixtureId}`);
 
       console.log(`Socket ${socket.id} successfully subscribed to fixture ${fixtureId}`);
-      
+
       // Confirm the user is in the room and will receive broadcasts
       const room = io.sockets.adapter.rooms.get(`fixture:${fixtureId}`);
       console.log(`Room fixture:${fixtureId} now has ${room?.size || 0} users`);
-      
+
       // Send a confirmation message to the user
-      socket.emit(`fixture:${fixtureId}:connected`, { 
+      socket.emit(`fixture:${fixtureId}:connected`, {
         message: 'Successfully connected to real-time feed',
         timestamp: Date.now(),
         roomSize: room?.size || 0
@@ -212,9 +212,9 @@ app.get('/api/fixtures/live/enhanced', async (req, res) => {
     res.json(fixtures);
   } catch (error) {
     console.error('Error fetching enhanced live fixtures:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch enhanced live fixtures',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -260,7 +260,7 @@ app.post('/api/feed/:id/view', async (req, res) => {
     const result = await RouteHandlerService.getFeedView(req.params.id);
     res.json(result);
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       status_code: 1,
       response: error.message,
       debug: 'post'
@@ -272,13 +272,13 @@ app.post('/api/feed/:id/view', async (req, res) => {
 app.post('/api/feed/start/:id', async (req, res) => {
   try {
     const fixtureId = req.params.id;
-    
+
     if (ablyService.isSubscribed(fixtureId)) {
       return res.json({ message: 'Feed already active', fixtureId });
     }
 
     const ablyFeed = await tokenManager.getTokenForFixture(fixtureId);
-    
+
     await ablyService.subscribe(
       fixtureId,
       ablyFeed.accessToken,
@@ -291,7 +291,7 @@ app.post('/api/feed/start/:id', async (req, res) => {
     res.json({ message: 'Feed started', fixtureId });
   } catch (error) {
     console.error('Error starting feed:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message,
       details: 'Failed to start feed. Please check your Ably credentials and fixture ID.'
     });
@@ -325,7 +325,7 @@ app.post('/api/feed/stop-all', async (req, res) => {
 app.post('/api/v2/fixtures/by-ids', async (req, res) => {
   try {
     const { fixtureIds, ...additionalParams } = req.body;
-    
+
     // Validate required fields
     if (!fixtureIds) {
       return res.status(400).json({
@@ -336,7 +336,7 @@ app.post('/api/v2/fixtures/by-ids', async (req, res) => {
 
     if (!Array.isArray(fixtureIds)) {
       return res.status(400).json({
-        error: 'Bad Request', 
+        error: 'Bad Request',
         message: 'fixtureIds must be an array'
       });
     }
@@ -359,19 +359,19 @@ app.post('/api/v2/fixtures/by-ids', async (req, res) => {
 
     // Convert to numbers if they're strings
     const numericIds = fixtureIds.map(id => Number(id));
-    
+
     // Prepare filter for multiple IDs
     const filter = `id[in]:${numericIds.join(',')}`;
-    
+
     // Prepare parameters for the API call
     const params = {
       filter: filter,
       ...additionalParams
     };
-    
+
     // Fetch fixtures from the service
     const fixtures = await fixturesV2Service.getFixtures(params);
-    
+
     res.json({
       ...fixtures,
       requestedFixtures: numericIds.length,
@@ -379,9 +379,9 @@ app.post('/api/v2/fixtures/by-ids', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching fixtures by IDs (V2):', error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch fixtures by IDs',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -390,7 +390,7 @@ app.post('/api/v2/fixtures/by-ids', async (req, res) => {
 app.get('/api/v2/fixtures', async (req, res) => {
   try {
     const { ids, ...queryParams } = req.query;
-    
+
     // Validate required fields
     if (!ids) {
       return res.status(400).json({
@@ -401,7 +401,7 @@ app.get('/api/v2/fixtures', async (req, res) => {
 
     // Parse IDs from comma-separated string
     const fixtureIds = ids.split(',').map(id => id.trim());
-    
+
     if (fixtureIds.length === 0) {
       return res.status(400).json({
         error: 'Bad Request',
@@ -420,19 +420,19 @@ app.get('/api/v2/fixtures', async (req, res) => {
 
     // Convert to numbers
     const numericIds = fixtureIds.map(id => Number(id));
-    
+
     // Prepare filter for multiple IDs
     const filter = `id[in]:${numericIds.join(',')}`;
-    
+
     // Prepare parameters for the API call
     const params = {
       filter: filter,
       ...queryParams
     };
-    
+
     // Fetch fixtures from the service
     const fixtures = await fixturesV2Service.getFixtures(params);
-    
+
     res.json({
       ...fixtures,
       requestedFixtures: numericIds.length,
@@ -440,9 +440,9 @@ app.get('/api/v2/fixtures', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching fixtures by IDs (V2):', error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch fixtures by IDs',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -454,9 +454,47 @@ app.get('/api/v2/fixtures/live', async (req, res) => {
     res.json(fixtures);
   } catch (error) {
     console.error('Error fetching live fixtures (V2):', error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch live fixtures',
-      message: error.message 
+      message: error.message
+    });
+  }
+});
+
+// Lightweight fixture name index for client-side search (admin: recent fixtures)
+app.get('/api/v2/fixtures/name-index/recent', async (req, res) => {
+  try {
+    const nameIndex = await fixturesV2Service.getRecentFixtureNameIndex(10);
+    res.json(nameIndex);
+  } catch (error) {
+    console.error('Error fetching recent fixture name index (V2):', error.message);
+    res.status(500).json({
+      error: 'Failed to fetch fixture name index',
+      message: error.message
+    });
+  }
+});
+
+// Lightweight fixture name index for client-side search (by competition IDs)
+app.post('/api/v2/fixtures/name-index/by-competitions', async (req, res) => {
+  try {
+    const { competitionIds } = req.body;
+
+    if (!competitionIds || !Array.isArray(competitionIds) || competitionIds.length === 0) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'competitionIds must be a non-empty array'
+      });
+    }
+
+    const numericIds = competitionIds.map(id => Number(id));
+    const nameIndex = await fixturesV2Service.getFixtureNameIndexByCompetitions(numericIds);
+    res.json(nameIndex);
+  } catch (error) {
+    console.error('Error fetching fixture name index by competitions (V2):', error.message);
+    res.status(500).json({
+      error: 'Failed to fetch fixture name index',
+      message: error.message
     });
   }
 });
@@ -467,14 +505,14 @@ app.get('/api/v2/fixtures/recent', async (req, res) => {
     const limit = req.query.limit ? parseInt(req.query.limit) : 25;
     const search = req.query.search;
     const status = req.query.status;
-    
+
     const fixtures = await fixturesV2Service.getRecentAndCurrentFixtures(10, limit, page, search, status);
     res.json(fixtures);
   } catch (error) {
     console.error('Error fetching recent fixtures (V2):', error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch recent fixtures',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -485,9 +523,9 @@ app.get('/api/v2/fixtures/:id', async (req, res) => {
     res.json(fixture);
   } catch (error) {
     console.error(`Error fetching fixture ${req.params.id} (V2):`, error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch fixture details',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -498,9 +536,9 @@ app.get('/api/v2/fixtures/:id/statistics', async (req, res) => {
     res.json(statistics);
   } catch (error) {
     console.error(`Error fetching fixture statistics ${req.params.id} (V2):`, error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch fixture statistics',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -509,29 +547,29 @@ app.get('/api/v2/competitions', async (req, res) => {
   try {
     const sportId = req.query.sportId || 10; // Default to sport ID 10 (football)
     const page = req.query.page ? parseInt(req.query.page) : 1;
-    const limit = req.query.limit ? parseInt(req.query.limit) : 50; 
+    const limit = req.query.limit ? parseInt(req.query.limit) : 50;
     const params = {
       filter: `sport.id[equals]:${sportId}`,
       page: page,
       pageSize: limit
     };
-    
+
     // Add additional filters if provided
     if (req.query.search) {
       params.filter += `~name[contains]:${encodeURIComponent(req.query.search)}`;
     }
-    
+
     if (req.query.sortBy) {
       params.sortBy = req.query.sortBy;
     }
-    
+
     const competitions = await fixturesV2Service.getCompetitions(params);
     res.json(competitions);
   } catch (error) {
     console.error('Error fetching competitions (V2):', error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch competitions',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -539,12 +577,12 @@ app.get('/api/v2/competitions', async (req, res) => {
 app.post('/api/v2/fixtures/by-competitions', async (req, res) => {
   try {
     const { competitionIds, includeDateFilter = true, dateRange, ...additionalParams } = req.body;
-    
+
     // Extract query parameters (page, limit, search) from URL query string
     const page = req.query.page ? parseInt(req.query.page) : 1;
     const limit = req.query.limit ? parseInt(req.query.limit) : 25;
     const search = req.query.search;
-    
+
     // Validate required fields
     if (!competitionIds) {
       return res.status(400).json({
@@ -555,7 +593,7 @@ app.post('/api/v2/fixtures/by-competitions', async (req, res) => {
 
     if (!Array.isArray(competitionIds)) {
       return res.status(400).json({
-        error: 'Bad Request', 
+        error: 'Bad Request',
         message: 'competitionIds must be an array'
       });
     }
@@ -578,29 +616,29 @@ app.post('/api/v2/fixtures/by-competitions', async (req, res) => {
 
     // Convert to numbers if they're strings
     const numericIds = competitionIds.map(id => Number(id));
-    
+
     // Handle custom date range if provided
-    const params = { 
+    const params = {
       includeDateFilter,
       page,
       limit,
-      ...additionalParams 
+      ...additionalParams
     };
-    
+
     // Add search if provided
     if (search && search.trim()) {
       params.search = search.trim();
     }
-    
+
     // If custom date range is provided, override the default date filtering
     if (dateRange && dateRange.startDate && dateRange.endDate) {
       params.includeDateFilter = false; // Disable default date filtering
       const customDateFilter = `startDate[gte]:${dateRange.startDate}~startDate[lte]:${dateRange.endDate}`;
       params.filter = params.filter ? `${params.filter}~${customDateFilter}` : customDateFilter;
     }
-    
+
     const fixtures = await fixturesV2Service.getFixturesByCompetitions(numericIds, params);
-    
+
     res.json({
       ...fixtures,
       requestedCompetitions: numericIds.length,
@@ -613,9 +651,9 @@ app.post('/api/v2/fixtures/by-competitions', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching fixtures by competitions (V2):', error.message);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch fixtures for competitions',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -623,7 +661,7 @@ app.post('/api/v2/fixtures/by-competitions', async (req, res) => {
 const tryPort = (port) => {
   return new Promise((resolve, reject) => {
     const testServer = createServer();
-    
+
     testServer.once('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         console.log(`Port ${port} is already in use, trying alternative...`);
@@ -633,12 +671,12 @@ const tryPort = (port) => {
         reject(err);
       }
     });
-    
+
     testServer.once('listening', () => {
       testServer.close();
       resolve(true);
     });
-    
+
     testServer.listen(port);
   });
 };
@@ -648,24 +686,24 @@ const tryPort = (port) => {
 const startServer = async () => {
   const PRIMARY_PORT = process.env.PORT || 3000;
   const FALLBACK_PORT = 3003;
-  
+
   let PORT = PRIMARY_PORT;
-  
+
   // Check if primary port is available
   const isPrimaryPortAvailable = await tryPort(PRIMARY_PORT);
-  
+
   if (!isPrimaryPortAvailable) {
     console.log(`Trying fallback port ${FALLBACK_PORT}...`);
     const isFallbackPortAvailable = await tryPort(FALLBACK_PORT);
-    
+
     if (!isFallbackPortAvailable) {
       console.error(`Both ports ${PRIMARY_PORT} and ${FALLBACK_PORT} are in use. Please specify a different port via the PORT environment variable.`);
       process.exit(1);
     }
-    
+
     PORT = FALLBACK_PORT;
   }
-  
+
   // To explicitly bind to a specific IP address, uncomment and use this code instead:
   /*
   const SERVER_IP = '51.89.167.87';
@@ -673,7 +711,7 @@ const startServer = async () => {
     console.log(`Server running at http://${SERVER_IP}:${PORT}`);
   });
   */
-  
+
   // Currently using default binding (all interfaces)
   httpServer.listen(PORT, () => {
     console.log(`Server running at http://51.89.167.87:${PORT}`);

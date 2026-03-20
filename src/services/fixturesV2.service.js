@@ -4,6 +4,128 @@ import { authService } from './auth.service.js';
 import { normalizeSearchTerm } from '../utils/string.utils.js';
 
 class FixturesV2Service {
+  constructor() {
+    // In-memory cache for fixture name indexes
+    // Key: stringified competitionIds or 'recent', Value: { data, timestamp }
+    this._nameIndexCache = new Map();
+    this._NAME_INDEX_TTL = 60000; // 60 seconds TTL
+  }
+
+  /**
+   * Get a lightweight name index for fixtures by competition IDs.
+   * Returns only { id, name, competitionName } per fixture.
+   * Results are cached in-memory for 60 seconds.
+   */
+  async getFixtureNameIndexByCompetitions(competitionIds) {
+    const cacheKey = `competitions:${competitionIds.sort().join(',')}`;
+    const cached = this._nameIndexCache.get(cacheKey);
+    
+    if (cached && (Date.now() - cached.timestamp) < this._NAME_INDEX_TTL) {
+      return cached.data;
+    }
+
+    // Build the same filter as getFixturesByCompetitions (without search)
+    const competitionFilter = `competitionId[in]:${competitionIds.join(',')}`;
+    const now = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    const oneWeekAhead = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+    const combinedFilter = `${competitionFilter}~startDate[gte]:${now}~startDate[lte]:${oneWeekAhead}~eventStatusType[notequals]:Finished`;
+
+    // Fetch all fixtures in batches of 100 (API max)
+    const maxPageSize = 100;
+    let allItems = [];
+    let currentPage = 1;
+    let hasMorePages = true;
+
+    while (hasMorePages) {
+      const url = `${geniusConfig.fixtureUrlV2.replace('http:', 'https:')}/fixtures`;
+      const response = await axios.get(url, {
+        headers: authService.getHeadersV2(),
+        params: {
+          filter: combinedFilter,
+          sortBy: 'startDate',
+          page: currentPage,
+          pageSize: maxPageSize
+        }
+      });
+
+      const apiResult = response.data;
+      allItems = allItems.concat(apiResult.items);
+
+      const totalPages = Math.ceil(apiResult.totalItems / maxPageSize);
+      hasMorePages = currentPage < totalPages;
+      currentPage++;
+
+      // Safety limit: max 50 pages = 5000 items
+      if (currentPage > 50) break;
+    }
+
+    // Map to lightweight name-only entries
+    const result = {
+      items: allItems.map(fixture => ({
+        id: fixture.id,
+        name: fixture.name,
+        competitionName: fixture.competition?.name || ''
+      })),
+      totalItems: allItems.length
+    };
+
+    // Cache the result
+    this._nameIndexCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    return result;
+  }
+
+  /**
+   * Get a lightweight name index for recent fixtures (admin use).
+   * Returns only { id, name, competitionName } per fixture.
+   * Results are cached in-memory for 60 seconds.
+   */
+  async getRecentFixtureNameIndex(sportId = 10) {
+    const cacheKey = `recent:${sportId}`;
+    const cached = this._nameIndexCache.get(cacheKey);
+    
+    if (cached && (Date.now() - cached.timestamp) < this._NAME_INDEX_TTL) {
+      return cached.data;
+    }
+
+    const now = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    const oneWeekAhead = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
+    const filter = `sportId[equals]:${sportId}~startDate[gte]:${now}~startDate[lte]:${oneWeekAhead}~eventStatusType[notequals]:Finished`;
+
+    const maxPageSize = 100;
+    let allItems = [];
+    let currentPage = 1;
+    let hasMorePages = true;
+
+    while (hasMorePages) {
+      const apiResult = await this.getFixtures({
+        filter: filter,
+        sortBy: 'startDate',
+        page: currentPage,
+        pageSize: maxPageSize
+      });
+
+      allItems = allItems.concat(apiResult.items);
+
+      const totalPages = Math.ceil(apiResult.totalItems / maxPageSize);
+      hasMorePages = currentPage < totalPages;
+      currentPage++;
+
+      if (currentPage > 50) break;
+    }
+
+    const result = {
+      items: allItems.map(fixture => ({
+        id: fixture.id,
+        name: fixture.name,
+        competitionName: fixture.competition?.name || ''
+      })),
+      totalItems: allItems.length
+    };
+
+    this._nameIndexCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    return result;
+  }
+
   async getFixtures(params = {}) {
     try {
       if (!authService.accessTokenV2) {
