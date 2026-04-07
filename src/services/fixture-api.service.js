@@ -120,10 +120,10 @@ class FixtureApiService {
       const activeFixtures = [];
 
       // For each competition, get active seasons and their fixtures
-      for (const competition of competitions.competitions) {
+      for (const competition of competitions._embedded.competitions) {
         const seasons = await this.getSeasons(competition.id);
         
-        for (const season of seasons.seasons) {
+        for (const season of seasons._embedded.seasons) {
           // Check if season is current/active
           const now = new Date();
           const startDate = new Date(season.seasonproperty.startDate);
@@ -131,7 +131,7 @@ class FixtureApiService {
 
           if (now >= startDate && now <= endDate) {
             const fixtures = await this.getFixtures(season.id);
-            activeFixtures.push(...fixtures.fixtures);
+            activeFixtures.push(...fixtures._embedded.fixtures);
           }
         }
       }
