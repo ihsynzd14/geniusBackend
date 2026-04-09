@@ -12,6 +12,7 @@ import { fixtureApiRoutes } from './routes/fixtureApi.routes.js';
 import { sessionRoutes } from './routes/session.routes.js';
 import { detailedFixturesService } from './services/detailed.fixtures.service.js';
 import { tokenManager } from './services/token.manager.js';
+import { bookingService } from './services/booking.service.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -655,6 +656,17 @@ app.post('/api/v2/fixtures/by-competitions', async (req, res) => {
       error: 'Failed to fetch fixtures for competitions',
       message: error.message
     });
+  }
+});
+
+app.get('/api/booking/fixtures/coverage', async (req, res) => {
+  try {
+    const sportId = parseInt(req.query.sportId) || 10;
+    const fixtures = await bookingService.getFixturesWithCoverage(sportId);
+    res.json(fixtures);
+  } catch (error) {
+    console.error('Error fetching booking fixtures:', error.message);
+    res.status(500).json({ error: 'Failed to fetch booking fixtures', message: error.message });
   }
 });
 

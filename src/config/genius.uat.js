@@ -25,5 +25,9 @@ export const geniusConfig = {
     clientProdIdV2: 'y3eiqVzTCdmJMasSp36iFOlJ3RTDYTet', 
     clientProdSecretV2: 'p56NaeTjcXsR5llqBdfiXFN4NKPaBxu6Ntpba8f-GJ2pFmfdWbOP3uvVCa2q_M6h', 
     authProdUrlV2: 'https://uat.auth.geniussports.com/oauth/token', 
-    fixtureUrlV2: 'https://uat.fixtures.api.geniussports.com/v2'
-}; 
+    fixtureUrlV2: 'https://uat.fixtures.api.geniussports.com/v2',
+
+  bookingApiUrl: 'https://dataservices.uat.betgenius.com/BookingSystem/api/v2/booking',
+  bookingApiUser: 'BookingAPIProsperoQuantum',
+  bookingApiPassword: 'o^jPP0pRIlCm'
+};
