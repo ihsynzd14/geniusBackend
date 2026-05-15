@@ -111,7 +111,7 @@ io.on('connection', (socket) => {
       const ablyFeed = await tokenManager.getTokenForFixture(fixtureId);
 
       // Track this user for token management
-      tokenManager.addUserToToken(fixtureId, socket.id);
+      tokenManager.addUserToToken(fixtureId, socket.id, socket.userId);
 
       // Check if Ably is already subscribed to this fixture
       if (!ablyService.isSubscribed(fixtureId)) {

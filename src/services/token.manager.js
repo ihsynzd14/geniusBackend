@@ -68,12 +68,13 @@ class TokenManager {
     return newToken;
   }
 
-  addUserToToken(fixtureId, socketId) {
+  addUserToToken(fixtureId, socketId, userId) {
     if (!this.tokenUsers.has(fixtureId)) {
       this.tokenUsers.set(fixtureId, new Set());
     }
     this.tokenUsers.get(fixtureId).add(socketId);
-    console.log(`Added user ${socketId} to fixture ${fixtureId}. Total users: ${this.tokenUsers.get(fixtureId).size}`);
+    const userLabel = userId ? `user:${userId}` : 'unauthenticated';
+    console.log(`Added ${userLabel} (socket:${socketId}) to fixture ${fixtureId}. Total users: ${this.tokenUsers.get(fixtureId).size}`);
   }
 
   removeUserFromToken(fixtureId, socketId) {
