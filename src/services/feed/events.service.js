@@ -8,6 +8,9 @@ export class EventsService {
 
     const buffer = ablyService.getAllCachedData(fixtureId) ?? [];
     const sinceMs = since ? new Date(since).getTime() : 0;
+    if (since && isNaN(sinceMs)) {
+      throw new Error('Invalid "since" parameter. Must be a valid ISO timestamp.');
+    }
     const events = [];
 
     for (const feedUpdate of buffer) {
@@ -22,13 +25,17 @@ export class EventsService {
             : new Date(feedUpdate.timestamp ?? 0).getTime();
 
           if (ts > sinceMs) {
-            events.push({ type, timestamp: action.timestamp ?? feedUpdate.timestamp, ...action });
+            events.push({ ...action, type, timestamp: action.timestamp ?? feedUpdate.timestamp });
           }
         }
       }
     }
 
-    events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    events.sort((a, b) => {
+      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return ta - tb;
+    });
     return events;
   }
 }
