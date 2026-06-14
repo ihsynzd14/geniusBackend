@@ -100,24 +100,18 @@ io.on('connection', (socket) => {
 
   socket.on('subscribe', async (fixtureId) => {
     try {
-      if (!socket.userId) {
-        console.warn(`Unauthenticated socket ${socket.id} tried to subscribe to fixture ${fixtureId} - rejected`);
-        socket.emit('auth_error', { message: 'Must authenticate before subscribing to fixtures' });
-        return;
-      }
-
       if (subscribedFixtures.has(fixtureId)) {
         console.log(`Socket ${socket.id} already subscribed to fixture ${fixtureId}`);
         return;
       }
 
-      console.log(`Socket ${socket.id} (user:${socket.userId}) subscribing to fixture ${fixtureId}`);
+      console.log(`Socket ${socket.id} subscribing to fixture ${fixtureId}`);
 
       // Use token manager to get shared token for this fixture
       const ablyFeed = await tokenManager.getTokenForFixture(fixtureId);
 
       // Track this user for token management
-      tokenManager.addUserToToken(fixtureId, socket.id, socket.userId);
+      tokenManager.addUserToToken(fixtureId, socket.id);
 
       // Check if Ably is already subscribed to this fixture
       if (!ablyService.isSubscribed(fixtureId)) {

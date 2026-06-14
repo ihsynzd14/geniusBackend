@@ -14,10 +14,7 @@ class AblyService {
       return {};
     }
 
-    console.log("Raw matchActions:", JSON.stringify(matchActions, null, 2)); // added log
-
-      const shotsOffWoodwork = matchActions.shotsOffWoodwork;
-      console.log("Raw shotsOffWoodwork:", JSON.stringify(shotsOffWoodwork, null, 2));
+    const shotsOffWoodwork = matchActions.shotsOffWoodwork;
 
     return {
       goals: this.processGoals(matchActions.goals?.goals || []),
@@ -188,7 +185,6 @@ class AblyService {
         }
     });
      const filteredShots = processedShots.filter(shot => shot !== null);
-    console.log("Processed shotsOffWoodwork output:", JSON.stringify(filteredShots, null, 2));
     return filteredShots;
   }
   processCornersV2(corners) {
