@@ -19,8 +19,8 @@ router.get('/:id/last-action', async (req, res) => {
 
 router.get('/:id/events', (req, res) => {
   try {
-    const events = EventsService.getEvents(req.params.id, req.query.since ?? null);
-    res.json({ status: 'success', count: events.length, events });
+    const { events, score } = EventsService.getEvents(req.params.id, req.query.since ?? null);
+    res.json({ status: 'success', count: events.length, events, score });
   } catch (error) {
     console.error('[feed/events] Error:', error.message);
     res.status(error.message.includes('Feed not found') ? 404 : 500).json({
