@@ -22,8 +22,11 @@ router.get('/:id/events', (req, res) => {
     const { events, score } = EventsService.getEvents(req.params.id, req.query.since ?? null);
     res.json({ status: 'success', count: events.length, events, score });
   } catch (error) {
-    console.error('[feed/events] Error:', error.message);
-    res.status(error.message.includes('Feed not found') ? 404 : 500).json({
+    const notFound = error.message.includes('Feed not found');
+    // "Feed not found" is expected & client-recoverable (the engine re-subscribes on 404). Don't log
+    // it — otherwise a backend restart floods the console with one line per poll per fixture.
+    if (!notFound) console.error('[feed/events] Error:', error.message);
+    res.status(notFound ? 404 : 500).json({
       status: 'error',
       message: error.message
     });
