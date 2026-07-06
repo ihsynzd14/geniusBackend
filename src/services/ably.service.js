@@ -193,6 +193,12 @@ class AblyService {
       id: corner.id,
       phase: corner.phase,
       team: corner.team,
+      // Top-level timestamp/timeElapsed so this event survives the getEvents `since` filter and
+      // actually reaches consumers. Without it, ts=0 → always filtered out → the engine never sees a
+      // cornersV2 event and the pending-corner risk-defer never fires. Use the latest sub-state's
+      // time so the record re-delivers when it transitions awarded → taken (clears the risk cleanly).
+      timestamp: corner.taken?.timestampUtc ?? corner.awarded?.timestampUtc,
+      timeElapsed: corner.taken?.timeElapsedInPhase ?? corner.awarded?.timeElapsedInPhase,
       awarded: {
         isConfirmed: corner.awarded?.isConfirmed,
         timestamp: corner.awarded?.timestampUtc,
