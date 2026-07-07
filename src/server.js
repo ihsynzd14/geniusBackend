@@ -291,6 +291,15 @@ app.post('/api/feed/start/:id', async (req, res) => {
 
     res.json({ message: 'Feed started', fixtureId });
   } catch (error) {
+    // Genius returns 404 for fixtures it offers no live stream for (common on lower-league
+    // friendlies). That's "no data exists", not a server fault — pass it through as 404 so
+    // clients (bettrade-engine) can stop retrying instead of hammering us in a 500 loop.
+    if (error.response?.status === 404) {
+      return res.status(404).json({
+        error: 'stream_not_available',
+        details: `Genius has no live feed for fixture ${req.params.id}`
+      });
+    }
     console.error('Error starting feed:', error);
     res.status(500).json({
       error: error.message,
