@@ -107,15 +107,17 @@ io.on('connection', (socket) => {
 
       console.log(`Socket ${socket.id} subscribing to fixture ${fixtureId}`);
 
-      // Use token manager to get shared token for this fixture
-      const ablyFeed = await tokenManager.getTokenForFixture(fixtureId);
-
-      // Track this user for token management
+      // Track this user for token management (cheap — no Genius call)
       tokenManager.addUserToToken(fixtureId, socket.id);
 
       // Check if Ably is already subscribed to this fixture
       if (!ablyService.isSubscribed(fixtureId)) {
         console.log(`Creating new Ably subscription for fixture ${fixtureId}`);
+        // Fetch the Genius token ONLY when we actually need to CREATE the subscription. Joining a
+        // fixture that is ALREADY live must NOT depend on a token call — otherwise a Genius 429
+        // (rate-limit) / 404 on the token throws before we send the buffered data + ':connected',
+        // leaving the client stuck on "Connecting to Live Feed" even though the data is ready.
+        const ablyFeed = await tokenManager.getTokenForFixture(fixtureId);
         await ablyService.subscribe(
           fixtureId,
           ablyFeed.accessToken,
