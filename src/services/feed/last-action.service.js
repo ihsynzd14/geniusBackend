@@ -30,7 +30,7 @@ export class LastActionService {
       throw new Error('Feed not found. Please start the feed first.');
     }
 
-    const feedData = ablyService.getFeedData(fixtureId);
+    const feedData = ablyService.getAllCachedData(fixtureId); // was ablyService.getFeedData (never existed → 500)
     if (!feedData || feedData.length === 0) {
       return this.formatResponse(fixtureId);
     }

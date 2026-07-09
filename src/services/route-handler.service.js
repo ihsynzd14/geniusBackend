@@ -23,7 +23,7 @@ class RouteHandlerService {
       };
     }
 
-    const feedData = ablyService.getFeedData(fixtureId);
+    const feedData = ablyService.getAllCachedData(fixtureId); // was ablyService.getFeedData (never existed → 500)
     if (!feedData?.length) {
       return {
         status_code: 0,
